@@ -7,6 +7,8 @@ from tempfile import NamedTemporaryFile
 from src.config.settings import ARTIFACTS
 from src.models.database import cache
 from src.services.domain import compute
+from src.services.reconciliation import reconcile
+from src.services.reconcile_workflow import claim_reconciliation, finish_reconciliation
 from src.services.workflow import claim_run, finish_run, publish_due
 from src.utils.exports import write_csv
 
@@ -31,12 +33,29 @@ def calculate(job):
         finish_run(key, claim, report, None)
 
 
+def calculate_reconciliation(job):
+    key, claim, lift_rows, receipt_rows = job
+    try:
+        result = reconcile(lift_rows, receipt_rows)
+        json.dumps(result, allow_nan=False)
+    except ValueError as error:
+        finish_reconciliation(key, claim, None, str(error))
+    except Exception:
+        logging.exception('Reconciliation %s failed', key)
+        finish_reconciliation(key, claim, None, '对账计算失败，请核对两份记录后重试。')
+    else:
+        finish_reconciliation(key, claim, result, None)
+
+
 def work():
     while True:
         try:
             job = claim_run()
             if job:
                 calculate(job)
+            reconciliation_job = claim_reconciliation()
+            if reconciliation_job:
+                calculate_reconciliation(reconciliation_job)
             publish_due()
             cache.set('worker:heartbeat', str(time.time()), ex=25)
         except Exception:

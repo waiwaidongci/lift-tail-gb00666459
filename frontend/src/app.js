@@ -4,12 +4,13 @@ import {bindForm} from './hooks/forms.js';
 import {analysis,bindAnalysis,results} from './pages/analysis.js';
 import {bindDispatch,delivery,review} from './pages/dispatch.js';
 import {bindSource,overview,source} from './pages/source.js';
+import {bindReconcile,reconcile} from './pages/reconcile.js';
 import {getRoute} from './router/route.js';
 import {session,state} from './stores/session.js';
 import {esc,formData} from './utils/html.js';
 
 const root = document.querySelector('#app');
-const pages = [overview,source,analysis,results,review,delivery];
+const pages = [overview,source,analysis,results,review,delivery,reconcile];
 let tick;
 let generation = 0;
 
@@ -26,6 +27,7 @@ async function render() {
   }
   const {section,runId} = getRoute();
   state.runId = runId;
+  if (section === 6) state.reconcileId = runId;
   try {
     const content = await pages[section]();
     if (current !== generation) return;
@@ -35,6 +37,7 @@ async function render() {
     bindSource(root,render);
     bindAnalysis(root,section,render);
     bindDispatch(root,render);
+    bindReconcile(root,render);
     if (root.querySelector('[data-poll]')) tick = setTimeout(render,850);
   } catch (error) {
     if (current !== generation) return;
